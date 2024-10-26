@@ -1,5 +1,7 @@
 # ollama
 
+[![License](https://img.shields.io/github/license/ai-shflow/ollama.svg)](https://github.com/ai-shflow/ollama/blob/main/LICENSE)
+
 
 
 ## Introduction

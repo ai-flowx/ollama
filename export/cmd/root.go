@@ -13,13 +13,19 @@ import (
 )
 
 const (
+	minArgs = 1
+
+	defaultRegistry = "registry.ollama.ai"
+	defaultLibrary  = "library"
+	defaultTag      = "latest"
+
+	dirPerm  = 0755
 	filePerm = 0644
-	minArgs  = 1
 )
 
 var (
-	modelName   string
-	modelOutput string
+	modelName string
+	modelPath string
 )
 
 var rootCmd = &cobra.Command{
@@ -35,10 +41,11 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 	Example: "\n" +
-		"  ollama-export llama3\n" +
-		"  ollama-export llama3 -o /path/to/files\n",
+		"  ollama-export llama3:latest\n" +
+		"  ollama-export llama3:latest -o /path/to/file\n",
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := execute(); err != nil {
+			fmt.Println(err.Error())
 			os.Exit(1)
 		}
 	},
@@ -64,7 +71,7 @@ func Execute() {
 func init() {
 	rootCmd.Root().CompletionOptions.DisableDefaultCmd = true
 
-	rootCmd.Flags().StringVarP(&modelOutput, "output", "o", "", "write to files")
+	rootCmd.Flags().StringVarP(&modelPath, "output", "o", "", "write to file")
 }
 
 // nolint:funlen,gocritic,gocyclo,mnd
@@ -75,64 +82,71 @@ func execute() error {
 	}
 
 	ollamaHome := filepath.Join(usr.HomeDir, ".ollama")
-	blobsFileBasePath := filepath.Join(ollamaHome, "models", "blobs")
-	manifestsFileBasePath := filepath.Join(ollamaHome, "models", "manifests")
+	blobsPath := filepath.Join(ollamaHome, "models", "blobs")
+	manifestsPath := filepath.Join(ollamaHome, "models", "manifests")
 
 	nameArgs := strings.Split(strings.ReplaceAll(modelName, ":", "/"), "/")
 
-	var manifestsRegistryName, manifestsLibraryName string
-	var manifestsModelName, manifestsParamsName string
+	var registryName, libraryName, tagName string
 
 	switch len(nameArgs) {
 	case 4:
-		manifestsRegistryName = nameArgs[0]
-		manifestsLibraryName = nameArgs[1]
-		manifestsModelName = nameArgs[2]
-		manifestsParamsName = nameArgs[3]
+		registryName = nameArgs[0]
+		libraryName = nameArgs[1]
+		modelName = nameArgs[2]
+		tagName = nameArgs[3]
 	case 3:
-		manifestsLibraryName = nameArgs[0]
-		manifestsModelName = nameArgs[1]
-		manifestsParamsName = nameArgs[2]
+		libraryName = nameArgs[0]
+		modelName = nameArgs[1]
+		tagName = nameArgs[2]
 	case 2:
-		manifestsModelName = nameArgs[0]
-		manifestsParamsName = nameArgs[1]
+		modelName = nameArgs[0]
+		tagName = nameArgs[1]
 	case 1:
-		manifestsModelName = nameArgs[0]
+		modelName = nameArgs[0]
 	}
 
-	if manifestsRegistryName == "" {
-		manifestsRegistryName = "registry.ollama.ai"
-	}
-	if manifestsLibraryName == "" {
-		manifestsLibraryName = "library"
-	}
-	if manifestsModelName == "" {
-		manifestsModelName = "vicuna"
-	}
-	if manifestsParamsName == "" {
-		manifestsParamsName = "latest"
+	if registryName == "" {
+		registryName = defaultRegistry
 	}
 
-	modelFullName := manifestsModelName + ":" + manifestsParamsName
-	fmt.Printf("Exporting model \"%s\" to \"%s\"...\n\n", modelFullName, modelOutput)
+	if libraryName == "" {
+		libraryName = defaultLibrary
+	}
 
-	manifestsFilePath := filepath.Join(manifestsFileBasePath, manifestsRegistryName, manifestsLibraryName,
-		manifestsModelName, manifestsParamsName)
+	if modelName == "" {
+		return errors.New("invalid model name")
+	}
+
+	if tagName == "" {
+		tagName = defaultTag
+	}
+
+	fullName := modelName + ":" + tagName
+
+	if modelPath == "" {
+		root, _ := os.Getwd()
+		modelPath = filepath.Join(root, modelName+"-"+tagName)
+	}
+
+	fmt.Printf("Export model %s to %s\n", fullName, modelPath)
+
+	manifestsFilePath := filepath.Join(manifestsPath, registryName, libraryName, modelName, tagName)
 	if _, err := os.Stat(manifestsFilePath); os.IsNotExist(err) {
 		return errors.Wrap(err, "manifest not found")
 	}
 
-	if _, err := os.Stat(modelOutput); err == nil {
-		return errors.Wrap(err, "target already exists")
+	if _, err := os.Stat(modelPath); err == nil {
+		return errors.Wrap(err, "path already exists")
 	}
 
-	if err := os.MkdirAll(modelOutput, os.ModePerm); err != nil {
+	if err := os.MkdirAll(modelPath, os.ModePerm); err != nil {
 		return errors.Wrap(err, "failed to make directory")
 	}
 
-	sourceFilePath := filepath.Join(modelOutput, "source.txt")
-	if err := os.WriteFile(sourceFilePath, []byte(fmt.Sprintf("%s/%s/%s:%s", manifestsRegistryName, manifestsLibraryName,
-		manifestsModelName, manifestsParamsName)), filePerm); err != nil {
+	sourceFilePath := filepath.Join(modelPath, "source.txt")
+	if err := os.WriteFile(sourceFilePath, []byte(fmt.Sprintf("%s/%s/%s:%s", registryName, libraryName, modelName, tagName)),
+		filePerm); err != nil {
 		return errors.Wrap(err, "failed to write file")
 	}
 
@@ -147,12 +161,12 @@ func execute() error {
 		return errors.Wrap(err, "failed to unmarshal data")
 	}
 
-	exportModelFilePath := filepath.Join(modelOutput, "Modelfile")
-	exportModelBinPath := filepath.Join(modelOutput, "model.bin")
+	exportModelFilePath := filepath.Join(modelPath, "Modelfile")
+	exportModelBinPath := filepath.Join(modelPath, "model.bin")
 
 	for _, layer := range manifest.Layers {
 		blobFileName := strings.ReplaceAll(layer.Digest, ":", "-")
-		blobFilePath := filepath.Join(blobsFileBasePath, blobFileName)
+		blobFilePath := filepath.Join(blobsPath, blobFileName)
 		blobData, err := os.ReadFile(blobFilePath)
 		if err != nil {
 			return errors.Wrap(err, "failed to read file")
@@ -190,7 +204,7 @@ func execute() error {
 		}
 	}
 
-	fmt.Printf("Model \"%s\" has been exported to \"%s\"!\n", modelFullName, modelOutput)
+	fmt.Printf("Model %s has been exported to %s\n", fullName, modelPath)
 
 	return nil
 }

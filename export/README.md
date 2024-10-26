@@ -1,6 +1,49 @@
 # ollama-export
 
-[![License](https://img.shields.io/github/license/ai-shflow/ollama.svg)](https://github.com/ai-shflow/ollama/blob/main/export/LICENSE)
+
+
+## Introduction
+
+*ollama-export* is module export of [ai-shflow](https://github.com/ai-shflow) written in Go.
+
+
+
+## Prerequisites
+
+- Go >= 1.23.0
+
+
+
+## Build
+
+```bash
+make build
+```
+
+
+
+## Usage
+
+```
+Usage:
+  ollama-export <name> [flags]
+
+Examples:
+
+  ollama-export llama3:latest
+  ollama-export llama3:latest -o /path/to/file
+
+
+Flags:
+  -h, --help            help for ollama-export
+  -o, --output string   write to file
+```
+
+
+
+## License
+
+Project License can be found [here](LICENSE).
 
 
 
