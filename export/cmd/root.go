@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	minArgs = 1
+	filePerm = 0644
+	minArgs  = 1
 )
 
 var (
@@ -34,8 +35,8 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 	Example: "\n" +
-		"  ollama-export llama3.2\n" +
-		"  ollama-export llama3.2 -o /path/to/llama3.2\n",
+		"  ollama-export llama3\n" +
+		"  ollama-export llama3 -o /path/to/files\n",
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := execute(); err != nil {
 			os.Exit(1)
@@ -66,6 +67,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&modelOutput, "output", "o", "", "write to files")
 }
 
+// nolint:funlen,gocritic,gocyclo,mnd
 func execute() error {
 	usr, err := user.Current()
 	if err != nil {
@@ -112,23 +114,25 @@ func execute() error {
 	}
 
 	modelFullName := manifestsModelName + ":" + manifestsParamsName
-	fmt.Printf("Exporting model \"%s\" to \"%s\"...\n\n", modelFullName, targetPath)
+	fmt.Printf("Exporting model \"%s\" to \"%s\"...\n\n", modelFullName, modelOutput)
 
-	manifestsFilePath := filepath.Join(manifestsFileBasePath, manifestsRegistryName, manifestsLibraryName, manifestsModelName, manifestsParamsName)
+	manifestsFilePath := filepath.Join(manifestsFileBasePath, manifestsRegistryName, manifestsLibraryName,
+		manifestsModelName, manifestsParamsName)
 	if _, err := os.Stat(manifestsFilePath); os.IsNotExist(err) {
 		return errors.Wrap(err, "manifest not found")
 	}
 
-	if _, err := os.Stat(targetPath); err == nil {
+	if _, err := os.Stat(modelOutput); err == nil {
 		return errors.Wrap(err, "target already exists")
 	}
 
-	if err := os.MkdirAll(targetPath, os.ModePerm); err != nil {
+	if err := os.MkdirAll(modelOutput, os.ModePerm); err != nil {
 		return errors.Wrap(err, "failed to make directory")
 	}
 
-	sourceFilePath := filepath.Join(targetPath, "source.txt")
-	if err := os.WriteFile(sourceFilePath, []byte(fmt.Sprintf("%s/%s/%s:%s", manifestsRegistryName, manifestsLibraryName, manifestsModelName, manifestsParamsName)), os.ModePerm); err != nil {
+	sourceFilePath := filepath.Join(modelOutput, "source.txt")
+	if err := os.WriteFile(sourceFilePath, []byte(fmt.Sprintf("%s/%s/%s:%s", manifestsRegistryName, manifestsLibraryName,
+		manifestsModelName, manifestsParamsName)), filePerm); err != nil {
 		return errors.Wrap(err, "failed to write file")
 	}
 
@@ -143,8 +147,8 @@ func execute() error {
 		return errors.Wrap(err, "failed to unmarshal data")
 	}
 
-	exportModelFilePath := filepath.Join(targetPath, "Modelfile")
-	exportModelBinPath := filepath.Join(targetPath, "model.bin")
+	exportModelFilePath := filepath.Join(modelOutput, "Modelfile")
+	exportModelBinPath := filepath.Join(modelOutput, "model.bin")
 
 	for _, layer := range manifest.Layers {
 		blobFileName := strings.ReplaceAll(layer.Digest, ":", "-")
@@ -156,10 +160,12 @@ func execute() error {
 		blobTypeName := strings.Split(layer.MediaType, ".")[len(strings.Split(layer.MediaType, "."))-1]
 		switch blobTypeName {
 		case "model":
-			if err := os.WriteFile(exportModelBinPath, blobData, os.ModePerm); err != nil {
+			if err := os.WriteFile(exportModelBinPath, blobData, filePerm); err != nil {
 				return errors.Wrap(err, "failed to write file")
 			}
-			appendToFile(exportModelFilePath, "FROM ./model.bin\n")
+			if err := appendFile(exportModelFilePath, "FROM ./model.bin\n"); err != nil {
+				return errors.Wrap(err, "failed to append file")
+			}
 		case "params":
 			paramsJson := string(blobData)
 			paramsMap := make(map[string]interface{})
@@ -170,23 +176,27 @@ func execute() error {
 				switch v := value.(type) {
 				case []interface{}:
 					for _, val := range v {
-						appendToFile(exportModelFilePath, fmt.Sprintf("PARAMETER %s \"%v\"\n", key, val))
+						if err := appendFile(exportModelFilePath, fmt.Sprintf("PARAMETER %s \"%v\"\n", key, val)); err != nil {
+							return errors.Wrap(err, "failed to append file")
+						}
 					}
 				}
 			}
 		default:
 			typeName := strings.ToUpper(blobTypeName)
-			appendToFile(exportModelFilePath, fmt.Sprintf("%s \"\"\"%s\"\"\"\n", typeName, string(blobData)))
+			if err := appendFile(exportModelFilePath, fmt.Sprintf("%s \"\"\"%q\"\"\"\n", typeName, string(blobData))); err != nil {
+				return errors.Wrap(err, "failed to append file")
+			}
 		}
 	}
 
-	fmt.Printf("%s Model \"%s\" has been exported to \"%s\"!\n", successPrefix, modelFullName, targetPath)
+	fmt.Printf("Model \"%s\" has been exported to \"%s\"!\n", modelFullName, modelOutput)
 
 	return nil
 }
 
-func appendToFile(filePath, text string) error {
-	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+func appendFile(filePath, text string) error {
+	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, filePerm)
 	if err != nil {
 		return errors.Wrap(err, "failed to open file")
 	}

@@ -10,4 +10,4 @@
 
 ## Extension
 
-- [ollama-export](https://github.com/ai-shflow/ollama/export)
+- [ollama-export](https://github.com/ai-shflow/ollama/tree/main/export)
