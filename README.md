@@ -13,3 +13,4 @@
 ## Extension
 
 - [ollama-export](https://github.com/ai-shflow/ollama/tree/main/export)
+- [ollama-serve](https://github.com/ai-shflow/ollama/tree/main/serve)
