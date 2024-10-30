@@ -198,7 +198,7 @@ func execute() error {
 			}
 		default:
 			typeName := strings.ToUpper(blobTypeName)
-			if err := appendFile(exportModelFilePath, fmt.Sprintf("%s \"\"\"%q\"\"\"\n", typeName, string(blobData))); err != nil {
+			if err := appendFile(exportModelFilePath, fmt.Sprintf("%s \"\"\"%s\"\"\"\n", typeName, string(blobData))); err != nil {
 				return errors.Wrap(err, "failed to append file")
 			}
 		}
