@@ -1,4 +1,4 @@
-module github/ai-shflow/ollama/export
+module github/ai-flowx/ollama/export
 
 go 1.23.2
 

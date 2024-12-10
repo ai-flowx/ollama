@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github/ai-shflow/ollama/export/cmd"
+	"github/ai-flowx/ollama/export/cmd"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module github/ai-shflow/ollama/serve
+module github/ai-flowx/ollama/serve
 
 go 1.23.2
 

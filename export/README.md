@@ -4,7 +4,7 @@
 
 ## Introduction
 
-*ollama-export* is module export of [ai-shflow](https://github.com/ai-shflow) written in Go.
+*ollama-export* is module export of [ai-flowx](https://github.com/ai-flowx) written in Go.
 
 
 

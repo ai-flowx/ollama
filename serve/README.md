@@ -4,7 +4,7 @@
 
 ## Introduction
 
-*ollama-serve* is module serve of [ai-shflow](https://github.com/ai-shflow) written in Go.
+*ollama-serve* is module serve of [ai-flowx](https://github.com/ai-flowx) written in Go.
 
 
 
