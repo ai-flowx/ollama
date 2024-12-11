@@ -6,7 +6,7 @@
 
 ## Introduction
 
-*ollama* is ollama extension of [ai-flowx](https://github.com/ai-flowx) written in Go.
+*ollama* is the ollama extensions of [ai-flowx](https://github.com/ai-flowx) written in Go.
 
 
 
